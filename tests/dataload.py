@@ -1,0 +1,467 @@
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.schema import Document
+import os
+dt = '20240811'
+version = 'v1_1'
+output_dir = os.path.join('outputs', f'{version}_{dt}')
+os.makedirs(output_dir, exist_ok=True)
+loader = PyPDFLoader("../data/2024全球经济金融展望报告.pdf")
+documents = loader.load()
+len(documents)
+len(documents[0].page_content)
+
+# %%
+import re
+
+pattern = r"^全球经济金融展望报告\n中国银行研究院 \d+ 2024年"
+# re.sub(pattern, '', splitted_docs_large[3].page_content)
+
+# %%
+merged_docs = [Document(page_content='\n'.join(re.sub(pattern, '', doc.page_content) for doc in documents))]
+
+# %%
+from uuid import uuid4
+import os
+import pickle
+
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+def split_docs(documents, filepath, chunk_size=400, chunk_overlap=40, seperators=['\n\n\n', '\n\n'], force_split=False):
+    if os.path.exists(filepath) and not force_split:
+        print('found cache, restoring...')
+        return pickle.load(open(filepath, 'rb'))
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=seperators
+    )
+    split_docs = splitter.split_documents(documents)
+    for chunk in split_docs:
+        chunk.metadata['uuid'] = str(uuid4())
+
+    pickle.dump(split_docs, open(filepath, 'wb'))
+
+    return split_docs
+
+# %%
+splitted_docs = split_docs(documents, os.path.join(output_dir, 'split_docs.pkl'), chunk_size=500, chunk_overlap=50)
+splitted_docs_large = split_docs(merged_docs, os.path.join(output_dir, 'split_docs_large.pkl'), chunk_size=1500, chunk_overlap=100)
+
+# %%
+len(splitted_docs), len(splitted_docs_large)
+
+# %%
+uuid2doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs}
+uuid2large_doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs_large}
+
+# %% [markdown]
+# # 抽取QA
+
+# %%
+qa_gen_prompt_tmpl = """
+我会给你一段文本（<document></document>之间的部分），你需要阅读这段文本，分别针对这段文本生成8个问题、用户回答这个问题的上下文，和基于上下文对问题的回答。
+
+对问题、上下文、答案的要求：
+
+问题要与这段文本相关，不要询问类似“这个问题的答案在哪一章”这样的问题
+上下文：上下文必须与原始文本的内容保持一致，不要进行缩写、扩写、改写、摘要、替换词语等
+答案：回答请保持完整且简洁，无须重复问题。答案要能够独立回答问题，而不是引用现有的章节、页码等
+
+返回结果以JSON形式组织，格式为[{"question": "...", "context": ..., "answer": "..."}, ...]。
+如果当前文本主要是目录，或者是一些人名、地址、电子邮箱等没有办法生成有意义的问题时，可以返回[]。
+
+下方是文本：
+<document>
+{{document}}
+</document>
+
+请生成结果：
+"""
+
+qa_gen_prompt_tmpl_large_context = """
+我会给你一段文本（<document></document>之间的部分），你需要阅读这段文本，分别针对这段文本生成2个问题，和基于这段文本对问题的回答，回答请保持完整，无须重复问题。
+尽可能创建一些需要综合*大段*文本才能回答的问题，但不要问类似“这一段主要讲了什么内容”这样的问题，答案要能够独立回答问题，而不是引用现有的章节、页码等；不要问具体过于细节的问题，例如“海湾国家的2024年预期经济增长率是多少”，而是尽可能问类似“2024年全球经济的几大趋势是什么”、“受局部中东地区紧张局势影响，可能对全球原物料有哪些影响”。
+返回结果以JSON形式组织，格式为[{"question": "...", "answer": "..."}, ...]。
+如果当前文本主要是目录，或者是一些人名、地址、电子邮箱等没有办法生成有意义的问题时，可以返回[]。
+
+下方是文本：
+<document>
+{{document}}
+</document>
+
+请生成结果：
+"""
+
+# %%
+# prompt_tmpl2 = """
+# 请帮我基于这份文档，构造10条数据，包括问题和答案和关键词，尽量生成一些需要全局信息的问题，回答尽量详细一些。
+# 请注意，答案必须来自于此文档，结果请以JSON数组形式组织，格式为[{"question": "...", "answer": "...", "keywords": ["..."]}]
+# """
+
+# prompt_tmpl3 = """
+# 请帮我基于这份文档，构造20条数据，包括问题和答案和关键词，尽量生成一些询问流程、有哪些步骤、有哪些组成部分的问题，回答尽量详细一些。
+# 请注意，答案必须来自于此文档，结果请以JSON数组形式组织，格式为[{"question": "...", "answer": "...", "keywords": ["..."]}]
+# """
+
+# %%
+from openai import OpenAI
+import time
+import random
+
+client = OpenAI(
+    api_key=os.environ['API_KEY'],
+    base_url=os.environ['BASE_URL']
+)
+
+def build_qa_prompt(prompt_tmpl, text):
+    prompt = prompt_tmpl.replace('{{document}}', text).strip()
+    return prompt
+
+def chat(prompt, max_retry=3, debug=False, model_name='qwen-long', temperature=0.85, top_p=0.95):
+    def do_chat(prompt):
+        completion = client.chat.completions.create(
+            # model="Qwen/Qwen2-72B-Instruct",
+            model=model_name,
+            messages=[    
+                {"role": "system", "content": "你是一个有用的人工智能助手"},    
+                {"role": "user", "content": prompt}
+            ],
+            top_p=top_p,
+            temperature=temperature
+        )
+        return completion.choices[0].message.content
+
+    while max_retry > 0:
+        try:
+            return do_chat(prompt)
+        except Exception as e:
+            max_retry -= 1
+            sleep_seconds = random.randint(1, 4)
+            if debug:
+                print(f"{str(e)}, remain retry: {max_retry}, sleeping {sleep_seconds}s {prompt}")
+            time.sleep(sleep_seconds)
+    return None
+
+# %%
+text = splitted_docs[40].page_content
+
+# %%
+print(text)
+
+# %%
+print(chat(build_qa_prompt(qa_gen_prompt_tmpl, text), debug=True))
+
+# %%
+print(splitted_docs_large[8].page_content)
+
+# %%
+print(chat(build_qa_prompt(qa_gen_prompt_tmpl_large_context, splitted_docs_large[8].page_content)))
+
+# %%
+import threading
+import concurrent.futures
+from tqdm.auto import tqdm
+import json
+
+def gen_qa(splitted_docs, prompt_tmpl, qa_ckpt_filename):
+    qa_ckpt = {}
+    if os.path.exists(qa_ckpt_filename):
+        qa_ckpt = open(qa_ckpt_filename).readlines()
+        qa_ckpt = [json.loads(line.strip()) for line in qa_ckpt if line.strip() != '']
+        qa_ckpt = {item['uuid']: item for item in qa_ckpt}
+        print(f'found checkpoint, item count: {len(qa_ckpt)}')
+    
+    file_lock = threading.Lock()
+    max_workers = 4
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {doc.metadata['uuid']: executor.submit(chat, build_qa_prompt(prompt_tmpl, doc.page_content), 3, True) for doc in splitted_docs if len(doc.page_content.replace('\n', '')) >= 150 and doc.metadata['uuid'] not in qa_ckpt}
+        for uuid in tqdm(futures):
+            future = futures[uuid]
+            result = future.result()
+            if result is None:
+                continue
+            
+            item = {'uuid': uuid, 'raw_resp': result}
+            qa_ckpt[uuid] = item
+    
+            # global file_lock
+            file_lock.acquire()
+            
+            try:
+                with open(qa_ckpt_filename, 'a') as f:
+                    f.write(json.dumps(item, ensure_ascii=False) + '\n')
+            except Exception as e:
+                print(e)
+            finally:
+                file_lock.release()
+    return qa_ckpt
+
+# %%
+detailed_qa_dict = gen_qa(splitted_docs, qa_gen_prompt_tmpl, os.path.join(output_dir, f"qa_ckpt_detailed.jsonl"))
+
+# %%
+large_context_qa_dict = gen_qa(splitted_docs_large, qa_gen_prompt_tmpl_large_context, os.path.join(output_dir, f"qa_ckpt_large_context.jsonl"))
+
+# %% [markdown]
+# # 后置处理
+
+# %%
+import re
+
+def convert2json(text):
+    # pattern = r'```\[(.*)\]```'
+    # matched = match.group(1)
+    pattern = r'\[.*\]'
+    # text = qa_ckpt['8e2d7b02-4207-47b1-a8a5-14409b1b86f6']['raw_resp']
+
+    text = text.replace('>>>', '')
+    try:
+        return json.loads(text)
+    except:
+        match = re.search(pattern, text, re.DOTALL)
+        try:
+            matched = match.group(0)
+            return json.loads(matched)
+        except Exception as e:
+            print(f"{match}, {str(e)}")
+
+    return []
+
+# %%
+from tqdm.auto import tqdm
+import pandas as pd
+import pickle
+
+def build_qa_df(qa_ckpt, uuid2doc_map):
+    data = []
+    
+    for key, value in tqdm(qa_ckpt.items()):
+        text = value['raw_resp']
+        qa_list = convert2json(text)
+    
+        for item in qa_list:
+            question = item.get('question', '').strip()
+            answer = item.get('answer', '').strip()
+            context = item.get('context', '').strip()
+            
+            if question == '' or answer == '':
+                print(qa_list)
+                continue
+            data.append({
+                'uuid': key,
+                'question': question,
+                'answer': answer,
+                'context': context,
+                'doc': uuid2doc_map[key]
+            })
+    qa_df = pd.DataFrame(data)
+    return qa_df
+
+# %%
+qa_df = build_qa_df(detailed_qa_dict, uuid2doc)
+large_context_qa_df = build_qa_df(large_context_qa_dict, uuid2large_doc)
+
+# %%
+len(qa_df)
+
+# %%
+qa_df.drop_duplicates('question', inplace=True)
+
+# %%
+len(qa_df)
+
+# %%
+len(large_context_qa_df)
+
+# %%
+large_context_qa_df.drop_duplicates('question', inplace=True)
+
+# %%
+len(large_context_qa_df)
+
+# %%
+qa_df.sample(5)
+
+# %%
+qa_df['qa_type'] = 'detailed'
+
+# %%
+large_context_qa_df.sample(5)
+
+# %%
+large_context_qa_df['qa_type'] = 'large_context'
+
+# %%
+qa_df = pd.concat([qa_df, large_context_qa_df])
+
+# %%
+qa_df.sample(5)
+
+# %%
+len(qa_df)
+
+# %% [markdown]
+# # QA质量检查
+
+# %%
+qa_check_prompt_tmpl = """
+你是一个金融领域的专家，现在有人根据一份经济发展报告，构造了一些问题，并对问题进行了回答。
+你的任务是对这些问题（<question></question>之间的部分）和回答（<answer></answer>）进行打分。
+
+结果请以JSON形式组织，格式如下（<result></result>之间的部分）：
+<result>
+{"score": ..., "reason": ...}
+</result>
+其中score是对问题-回答的打分，分值是一个int类型的值，取值范围为1-5。reason是打分的理由。
+
+好的问题，应该是询问事实、观点等，不好的问题，通常要求做一些文本摘要等初级文字处理工作，类似于“这一段描述了什么”，“文本描述了什么”；或者询问的内容是图相关的，例如“图4展示了什么数据？”。
+好的答案，应该能够回应问题，而不是回答无关的内容，不好的回答，会给出在原文中的引用，例如“第3章”等。
+
+问题：
+<question>
+{{question}}
+</question>
+
+参考答案：
+<answer>
+{{answer}}
+</answer>
+
+请进返回JSON格式的数据即可，不要添加其他任何描述性信息。
+"""
+
+# %%
+def build_qa_scoring_prompt(row):
+    context = row['context']
+    question = row['question']
+    answer = row['answer']
+    prompt = qa_check_prompt_tmpl.replace('{{question}}', question).replace('{{answer}}', answer)
+
+    return prompt
+
+# %% [markdown]
+# 在大规模打分之前，先调试一下，检查Prompt是否正常
+
+# %%
+qa_df.iloc[41].to_dict()
+
+# %%
+print(build_qa_scoring_prompt(qa_df.iloc[41]))
+
+# %%
+print(chat(build_qa_scoring_prompt(qa_df.iloc[41]), debug=True, model_name='qwen-long', temperature=0))
+
+# %%
+import threading
+import concurrent.futures
+from tqdm.auto import tqdm
+import json
+
+qa_scoring_ckpt = {}
+qa_scoring_ckpt_filename = os.path.join(output_dir, f"qa_scoring_ckpt.jsonl")
+if os.path.exists(qa_scoring_ckpt_filename):
+    qa_scoring_ckpt = open(qa_scoring_ckpt_filename).readlines()
+    qa_scoring_ckpt = [json.loads(line.strip()) for line in qa_scoring_ckpt if line.strip() != '']
+    qa_scoring_ckpt = {item['question']: item for item in qa_scoring_ckpt}
+    print(f'found checkpoint, item count: {len(qa_scoring_ckpt)}')
+
+file_lock = threading.Lock()
+max_workers = 3
+with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    futures = {row['question']: executor.submit(chat, build_qa_scoring_prompt(row), 3, True, 'qwen-long', 0) for _, row in qa_df.iterrows() if row['question'] not in qa_scoring_ckpt}
+    for question in tqdm(futures):
+        future = futures[question]
+        result = future.result()
+        if result is None:
+            continue
+        
+        item = {'question': question, 'raw_resp': result}
+        qa_scoring_ckpt[question] = item
+
+        global file_lock
+        file_lock.acquire()
+        
+        try:
+            with open(qa_scoring_ckpt_filename, 'a') as f:
+                f.write(json.dumps(item, ensure_ascii=False) + '\n')
+        except Exception as e:
+            print(e)
+        finally:
+            file_lock.release()
+
+# %%
+def extract_json(text):
+    """
+    从raw_resp中提取出打分结果的JSON
+    :param raw_resp: LLM的返回结果，数据样例：
+    {\n"score": 5, \n"reason": "问题提出了一个具体且明确的观点询问，即针对美国房地产市场的风险评估，特别是对中小型银行的影响。参考答案直接回答了问题，并提供了详细的解释和原因，没有引用原始文本的位置，而是直接给出了分析性的内容。"\n}
+    Based on the given criteria:\n\n- The question asks for a factual assessment of global trade performance in 2023, which is clear and direct.\n- The provided answer directly addresses the question without referring back to a source or chapter, offering an evaluation of global trade conditions in 2023.\n\nBoth the question and the answer meet the criteria for being high-quality and appropriately structured. Therefore, I would give them a high score.\n\n```json\n{"score": 5, "reason": "The question is clear and direct, seeking a factual evaluation. The answer provides a direct response without referring to specific sources or sections."}\n```
+    """
+    # pattern = r'\n```json\n(.*?)\n```'
+    pattern = r'\{.*?\}'
+    
+    ret = {}
+    try:
+        ret = json.loads(text)
+    except:
+        match = re.search(pattern, text, re.DOTALL)
+        try:
+            matched = match.group(0)
+            ret = json.loads(matched)
+        except Exception as e:
+            print(f"{match}, {str(e)}")
+            
+    return ret
+
+# %%
+qa_scoring_dict = {}
+
+for key, value in qa_scoring_ckpt.items():
+    try:
+        qa_scoring_dict[key] = extract_json(value['raw_resp'])
+        if 'score' not in qa_scoring_dict[key]:
+            qa_scoring_dict[key] = {'score': -1, 'reason': f"parse failed, raw resp: {value['raw_resp']}"}
+            raise ValueError(f'no score in result, question: {key}')
+    except Exception as e:
+        print(f"{key}, error: {e}")
+
+# %%
+qa_df['score'] = qa_df['question'].apply(lambda q: qa_scoring_dict.get(q, {}).get('score', -1))
+qa_df['score_reason'] = qa_df['question'].apply(lambda q: qa_scoring_dict.get(q, {}).get('reason', -1))
+
+# %%
+qa_df.sample(5)
+
+# %%
+qa_df['score'].value_counts()
+
+# %%
+qa_df[qa_df['score'] == 3]
+
+# %%
+qa_df[qa_df['score'] == 2]
+
+# %%
+hq_qa_df = qa_df[qa_df['score'] >= 4]
+
+# %%
+hq_qa_df.shape
+
+# %%
+test_q = hq_qa_df.sample(100, replace=False)['question'].values.tolist()
+
+# %%
+hq_qa_df['dataset'] = 'train'
+hq_qa_df.loc[hq_qa_df['question'].isin(test_q), 'dataset'] = 'test'
+
+# %%
+hq_qa_df.sample(10)
+
+# %%
+hq_qa_df.to_excel(os.path.join(output_dir, f'question_answer.xlsx'), index=False)
+
+# %%
+
+
+
