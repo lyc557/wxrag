@@ -141,12 +141,11 @@ class DocumentProcessor:
     def process(self) -> tuple:
         """处理文档的主流程"""
         
-        # 1. 加载文档
+        # 1. langchain_community的提供的PyPDFLoader读取文档
         documents = self.load_document()
         print(f"文档页数: {len(documents)}")
         
-        # 2. 自动检测并清理页眉页脚
-            # 2. 自动检测并清理页眉页脚
+        # 2. 对文档进行初步的清洗 自动检测并清理页眉页脚
         cleaned_docs, merged_docs = self.clean_headers_and_footers(documents)
         
         # 3. 分割文档（两种粒度）
@@ -198,16 +197,7 @@ def main():
     # 处理文档
     splitted_docs, splitted_docs_large, uuid2doc, uuid2large_doc = processor.process()
     
-    # 打印示例
-    # print("\n=== 小块分割示例（500字符）===")
-    # print(docs[0].page_content)
-    # print("\n=== 大块分割示例（1500字符）===")
-    # print(large_docs[0].page_content)
-    # print(f"\n文档块数量: {len(docs)}, {len(large_docs)}")
-
-    # print(f"\nuuid2doc: {uuid2doc[list(uuid2doc.keys())[0]]}")
-    # print(f"\nuuid2large_doc: {uuid2large_doc[list(uuid2large_doc.keys())[0]]}")
-
+    # 5. 通过提示词生成QA对
     qa_gen_prompt_tmpl = """
     我会给你一段文本（<document></document>之间的部分），请仔细阅读并生成8个高质量的问答对。要求如下：
 
