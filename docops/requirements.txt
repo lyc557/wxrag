@@ -1,0 +1,10 @@
+langchain
+langchain_community
+pypdf
+openai
+requests
+tenacity
+
+# 基础依赖
+pandas
+regex

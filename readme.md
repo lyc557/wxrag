@@ -45,6 +45,7 @@ wxrag/
 │   └── utils/           # 工具函数
 │   └── document_processor/  # 文档处理模块
 ├── scripts/             # 部署和维护脚本
+├── docops/              # 文本分割子任务
 ├── docs/                # 项目文档
 └── tests/               # 测试代码
 

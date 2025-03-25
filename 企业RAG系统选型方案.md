@@ -19,3 +19,6 @@ https://github.com/lizhe2004/Awesome-LLM-RAG-Application
 需要整合企业内部知识，或者是整合项目档案
 
 ## 效果
+
+
+企业RAG之，QA问答系统数据的生成
