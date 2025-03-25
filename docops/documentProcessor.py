@@ -283,13 +283,13 @@ def main():
     dpchat = DeepSeekChat()
 
     # 短上下文抽取结果
-    # detailed_qa_dict = dpchat.gen_qa(splitted_docs, qa_gen_prompt_tmpl, 
-    #                                os.path.join(processor.output_dir, "qa_ckpt_detailed.jsonl"))
+    detailed_qa_dict = dpchat.gen_qa(splitted_docs, qa_gen_prompt_tmpl, 
+                                   os.path.join(processor.output_dir, "qa_ckpt_detailed.jsonl"))
     # 长上下文抽取结果
     large_context_qa_dict = dpchat.gen_qa(splitted_docs_large, qa_gen_prompt_tmpl_large_context, 
                                         os.path.join(processor.output_dir, "qa_ckpt_large_context.jsonl"))
 
-    # print(f"\n详细QA对数量: {len(detailed_qa_dict)}")
+    print(f"\n详细QA对数量: {len(detailed_qa_dict)}")
     print(f"\n长上下文QA对数量: {len(large_context_qa_dict)}")
     # 打印全部结果
     # for qa in detailed_qa_dict:
@@ -298,10 +298,10 @@ def main():
     #     print(f"上下文: {qa['context']}")
     #     print(f"UUID: {qa['uuid']}")   
 
-    for qa in large_context_qa_dict:
-        print(f"\n问题: {qa['question']}")
-        print(f"答案: {qa['answer']}")
-        print(f"UUID: {qa['uuid']}") 
+    # for qa in large_context_qa_dict:
+    #     print(f"\n问题: {qa['question']}")
+    #     print(f"答案: {qa['answer']}")
+    #     print(f"UUID: {qa['uuid']}") 
 
     # 使用正则表达式进行后置处理，提取JSON部分
     # qa_df = build_qa_df(detailed_qa_dict, uuid2doc)
