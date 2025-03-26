@@ -81,6 +81,16 @@ class DeepSeekChat:
             splitted_docs: 文档列表
             prompt_tmpl: 提示模板
             qa_ckpt_filename: 问题和答案的检查点文件名
+
+        Returns:
+            {
+                "uuid": "xxx",  # 文档块的唯一标识符
+                "raw_resp": "[{
+                    'question': '问题描述',
+                    'context': '原文引用',
+                    'answer': '基于上下文的答案'
+                }, ...]"  # 字符串形式的JSON数组
+            }
         """
         qa_ckpt = {}
         if os.path.exists(qa_ckpt_filename):

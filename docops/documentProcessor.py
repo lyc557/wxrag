@@ -7,8 +7,8 @@ import pickle
 import re
 from typing import List, Dict, Tuple
 from deepseek_chat import DeepSeekChat
-from config import DOC_INPUT_DIR, DOC_OUTPUT_DIR, DOC_SPLITTER_SEPARATORS
-from jsonutil import convert2json, build_qa_df
+from config import DOC_INPUT_DIR, DOC_OUTPUT_DIR, DOC_SPLITTER_SEPARATORS, QA_GEN_PROMPT_TMPL, QA_GEN_PROMPT_TMPL_LARGE_CONTEXT
+from jsonutil import  build_qa_df
 import pandas as pd
 
 class DocumentProcessor:
@@ -22,11 +22,14 @@ class DocumentProcessor:
         """
         self.input_file = input_file
         self.version = version
-        self.output_dir = os.path.join(output_dir, f"{version}_{self._get_date()}")
+        self.output_dir = os.path.join(output_dir, f"{version}_{self._get_timestamp()}")
         print(f"output_dir: {self.output_dir}")
         os.makedirs(self.output_dir, exist_ok=True)
         
-        
+    def _get_timestamp(self) -> str:
+        """获取时间戳"""
+        from datetime import datetime
+        return datetime.now().strftime("%Y%m%d%H%M%S")
     def _get_date(self) -> str:
         """获取日期字符串"""
         from datetime import datetime
@@ -167,11 +170,7 @@ class DocumentProcessor:
             force_split=True
         )
         
-        # 4. 创建UUID到文档内容的映射
-        uuid2doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs}
-        uuid2large_doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs_large}
-        
-        return splitted_docs, splitted_docs_large, uuid2doc, uuid2large_doc
+        return splitted_docs, splitted_docs_large
 
     @staticmethod
     def build_qa_prompt(prompt_tmpl: str, text: str) -> str:
@@ -189,130 +188,66 @@ def main():
     # 修改为读取 600519_20240403_W0YD.pdf 文件
     input_file = os.path.join(DOC_INPUT_DIR, '600519_20240403_W0YD.pdf')
 
+    # 0.初始化文档处理器
     processor = DocumentProcessor(
         input_file=input_file,
         output_dir=DOC_OUTPUT_DIR
     )
     
-    # 处理文档
-    splitted_docs, splitted_docs_large, uuid2doc, uuid2large_doc = processor.process()
+    # 1.处理文档
+    print("\n=== 1.处理文档 ===")
+    splitted_docs, splitted_docs_large = processor.process()
     
-    # 5. 通过提示词生成QA对
-    qa_gen_prompt_tmpl = """
-    我会给你一段文本（<document></document>之间的部分），请仔细阅读并生成8个高质量的问答对。要求如下：
+    # 2. 通过提示词生成QA对
+    print("\n=== 2.生成QA对 ===")
+    qa_gen_prompt_tmpl = QA_GEN_PROMPT_TMPL  # 使用配置文件中的模板
+    qa_gen_prompt_tmpl_large_context = QA_GEN_PROMPT_TMPL_LARGE_CONTEXT  # 使用配置文件中的长上下文模板
 
-    1. 问题要求：
-       - 问题必须与文本内容直接相关
-       - 避免询问文档结构相关的问题（如"在哪一章"）
-       - 问题应该有实质性的信息价值
-       - 优先生成需要理解和分析的问题，而不是简单的事实查找
+    # 检查序列化数据是否存在
+    detailed_qa_pkl = os.path.join(processor.output_dir, 'detailed_qa_dict.pkl')
+    large_context_qa_pkl = os.path.join(processor.output_dir, 'large_context_qa_dict.pkl')
+    uuid2doc_pkl = os.path.join(processor.output_dir, 'uuid2doc.pkl')
+    large_context_qa_pkl = os.path.join(processor.output_dir, 'large_context_qa_dict.pkl')
 
-    2. 上下文要求：
-       - 必须是原文的直接引用，不允许任何形式的改写
-       - 应该包含完整的相关信息，确保上下文自包含
-       - 如果信息分散在多处，可以用"..."连接相关段落
+    if os.path.exists(detailed_qa_pkl) and os.path.exists(large_context_qa_pkl) and os.path.exists(uuid2doc_pkl) and os.path.exists(large_context_qa_pkl):
+        print("\n=== 从缓存加载QA数据 ===")
+        with open(detailed_qa_pkl, 'rb') as f:
+            detailed_qa_dict = pickle.load(f)
+        with open(large_context_qa_pkl, 'rb') as f:
+            large_context_qa_dict = pickle.load(f)
+        with open(uuid2doc_pkl, 'rb') as f:
+            uuid2doc = pickle.load(f)
+        with open(large_context_qa_pkl, 'rb') as f:
+            large_context_qa_dict = pickle.load(f)
+    else:
+        print("\n=== 生成新的QA数据 ===")
+        dpchat = DeepSeekChat()
+        # 2. 构建uuid2doc字典
+        uuid2doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs}
+        uuid2large_doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs_large}
 
-    3. 答案要求：
-       - 基于上下文直接回答问题
-       - 保持完整性和准确性
-       - 简明扼要，避免冗余
-       - 使用肯定的语气
-       - 不要引用文档结构（如章节、页码）
-
-    返回格式：
-    [
-        {
-            "question": "问题描述",
-            "context": "原文引用",
-            "answer": "基于上下文的答案"
-        },
-        ...
-    ]
-
-    如果文本主要是目录、人名列表、联系方式等无实质内容的信息，请返回空数组 []。
-
-    下方是待分析文本：
-    <document>
-    {{document}}
-    </document>
-    """
-
-    qa_gen_prompt_tmpl_large_context = """
-    我会给你一段文本（<document></document>之间的部分），请仔细阅读并生成2个深度问答对。要求如下：
-
-    1. 问题要求：
-       - 问题要求：
-         - 问题必须需要综合理解大段文本才能回答
-         - 关注公司战略、业务发展、财务表现等深层次问题
-         - 避免过于具体的数据细节（如具体增长率）
-         - 避免空泛的概述性问题（如"主要讲了什么"）
-         - 优先考虑：
-           * 业务分析（如"公司核心业务的竞争优势"）
-           * 战略评估（如"公司未来发展战略及其可行性"）
-           * 风险分析（如"公司面临的主要风险及应对措施"）
-           * 财务表现（如"公司盈利能力的变化趋势及原因"）
-
-    2. 答案要求：
-       - 全面性：需要整合文本中的多个相关信息
-       - 逻辑性：清晰展示因果关系或逻辑推理
-       - 完整性：确保回答涵盖问题的各个方面
-       - 准确性：严格基于文本内容，避免过度推测
-       - 简洁性：去除冗余，突出关键信息
-
-    返回格式：
-    [
-        {
-            "question": "深度分析性问题",
-            "answer": "综合性回答"
-        },
-        {
-            "question": "深度分析性问题",
-            "answer": "综合性回答"
-        }
-    ]
-
-    如果文本主要是目录、人名列表、联系方式等无实质内容的信息，请返回空数组 []。
-
-    下方是待分析文本：
-    <document>
-    {{document}}
-    </document>
-    """
-    # 打印示例
-    print("\n=== 生成QA对示例（500字符）===")
-    dpchat = DeepSeekChat()
-
-    # 短上下文抽取结果
-    detailed_qa_dict = dpchat.gen_qa(splitted_docs, qa_gen_prompt_tmpl, 
-                                   os.path.join(processor.output_dir, "qa_ckpt_detailed.jsonl"))
-    # 长上下文抽取结果
-    large_context_qa_dict = dpchat.gen_qa(splitted_docs_large, qa_gen_prompt_tmpl_large_context, 
-                                        os.path.join(processor.output_dir, "qa_ckpt_large_context.jsonl"))
-
+        # 短上下文抽取结果 暂时取前十条数据
+        detailed_qa_dict = dpchat.gen_qa(splitted_docs[9:10], qa_gen_prompt_tmpl, 
+                                       os.path.join(processor.output_dir, "qa_ckpt_detailed.jsonl"))
+        # 长上下文抽取结果 暂时取前十条数据
+        # large_context_qa_dict = dpchat.gen_qa(splitted_docs_large[9:10], qa_gen_prompt_tmpl_large_context, 
+        #                                     os.path.join(processor.output_dir, "qa_ckpt_large_context.jsonl"))
+        
+        # 保存序列化数据
+        with open(detailed_qa_pkl, 'wb') as f:
+            pickle.dump(detailed_qa_dict, f)
+        with open(large_context_qa_pkl, 'wb') as f:
+            pickle.dump(large_context_qa_dict, f)
+        with open(uuid2doc_pkl, 'wb') as f:
+            pickle.dump(uuid2doc, f)
+        with open(large_context_qa_pkl, 'wb') as f:
+            pickle.dump(large_context_qa_dict, f)
+    
     print(f"\n详细QA对数量: {len(detailed_qa_dict)}")
     print(f"\n长上下文QA对数量: {len(large_context_qa_dict)}")
-    # 打印全部结果
-    # for qa in detailed_qa_dict:
-    #     print(f"\n问题: {qa['question']}")
-    #     print(f"答案: {qa['answer']}")
-    #     print(f"上下文: {qa['context']}")
-    #     print(f"UUID: {qa['uuid']}")   
 
-    # for qa in large_context_qa_dict:
-    #     print(f"\n问题: {qa['question']}")
-    #     print(f"答案: {qa['answer']}")
-    #     print(f"UUID: {qa['uuid']}") 
-
-    # 使用正则表达式进行后置处理，提取JSON部分
-    # qa_df = build_qa_df(detailed_qa_dict, uuid2doc)
-    # qa_df.drop_duplicates('question', inplace=True)
-    # qa_df['qa_type'] = 'detailed'
-    # large_context_qa_df = build_qa_df(large_context_qa_dict, uuid2large_doc)
-    # large_context_qa_df.drop_duplicates('question', inplace=True)
-    # large_context_qa_df['qa_type'] = 'large_context'
-
-    qa_df = pd.concat([qa_df, large_context_qa_df])
-
+    qa_df = build_qa_df(detailed_qa_dict, uuid2doc)
+    large_context_qa_df = build_qa_df(large_context_qa_dict, uuid2large_doc)
 
 if __name__ == "__main__":
     main()
