@@ -9,7 +9,7 @@
 DEEPSEEK_API_KEY = "test-api-key"
 DEEPSEEK_API_BASE = "http://127.0.0.1:8000/v1"
 # DEEPSEEK_MODEL = "Qwen/Qwen2.5-3B-Instruct"
-DEEPSEEK_MODEL = "Qwen/Qwen2.5-3B-Instruct"
+DEEPSEEK_MODEL = "mlx-community/MiniCPM3-4B-bfloat16"
 DEEPSEEK_MAX_WORKERS = 1  # 并发工作线程数量
 
 

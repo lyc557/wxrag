@@ -227,11 +227,11 @@ def main():
         uuid2large_doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs_large}
 
         # 短上下文抽取结果 暂时取前十条数据
-        detailed_qa_dict = dpchat.gen_qa(splitted_docs[9:10], qa_gen_prompt_tmpl, 
+        detailed_qa_dict = dpchat.gen_qa(splitted_docs[:100], qa_gen_prompt_tmpl, 
                                        os.path.join(processor.output_dir, "qa_ckpt_detailed.jsonl"))
         # 长上下文抽取结果 暂时取前十条数据
-        # large_context_qa_dict = dpchat.gen_qa(splitted_docs_large[9:10], qa_gen_prompt_tmpl_large_context, 
-        #                                     os.path.join(processor.output_dir, "qa_ckpt_large_context.jsonl"))
+        large_context_qa_dict = dpchat.gen_qa(splitted_docs_large[:100], qa_gen_prompt_tmpl_large_context, 
+                                            os.path.join(processor.output_dir, "qa_ckpt_large_context.jsonl"))
         
         # 保存序列化数据
         with open(detailed_qa_pkl, 'wb') as f:

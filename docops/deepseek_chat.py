@@ -75,8 +75,10 @@ class DeepSeekChat:
         return prompt
 
     def gen_qa(self, splitted_docs, prompt_tmpl, qa_ckpt_filename):
+        
         """生成问题和答案
-
+        
+       
         Args:
             splitted_docs: 文档列表
             prompt_tmpl: 提示模板
@@ -92,6 +94,12 @@ class DeepSeekChat:
                 }, ...]"  # 字符串形式的JSON数组
             }
         """
+         # 打印参数信息
+        print(f"传入的文档数量: {len(splitted_docs)}")
+        print(f"提示模板: {prompt_tmpl}")
+        print(f"检查点文件名: {qa_ckpt_filename}")
+
+        
         qa_ckpt = {}
         if os.path.exists(qa_ckpt_filename):
             qa_ckpt = open(qa_ckpt_filename).readlines()
@@ -114,7 +122,7 @@ class DeepSeekChat:
                 if result is None:
                     continue
 
-                item = {'uuid': uuid, 'raw_resp': result}
+                item = {'uuid': uuid,'raw_resp': result}
                 qa_ckpt[uuid] = item
 
                 file_lock.acquire()
