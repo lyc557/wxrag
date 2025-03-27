@@ -1,5 +1,8 @@
 .DS_Store
 .jsonl
 outputs/
-**/__pycache__/
+__pycache__/
 .pyc
+.log
+.tmp
+logs/

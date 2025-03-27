@@ -6,7 +6,9 @@ from tqdm.auto import tqdm
 import pandas as pd
 import pickle
 import re
+from logger_config import get_logger
 
+logger = get_logger(__name__)
 
 def build_qa_df(qa_ckpt, uuid2doc_map):
     data = []
@@ -24,7 +26,7 @@ def build_qa_df(qa_ckpt, uuid2doc_map):
                 text = re.sub(r',\s*]', ']', text)  # 修复多余的逗号
                 qa_list = json.loads(text)
             except json.JSONDecodeError as e:
-                print(f"JSON 解析错误: {str(e)}\n原始文本: {text[:2000]}...")
+                logger.error(f"JSON 解析错误: {str(e)}\n原始文本: {text[:2000]}...")
                 break
         
         for item in qa_list:
@@ -33,7 +35,7 @@ def build_qa_df(qa_ckpt, uuid2doc_map):
             context = item.get('context', '').strip()
             
             if question == '' or answer == '':
-                print(f"无效的 QA 对: {item}")
+                logger.warning(f"无效的 QA 对: {item}")
                 continue
             data.append({
                 'uuid': key,
