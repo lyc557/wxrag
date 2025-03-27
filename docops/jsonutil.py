@@ -24,9 +24,23 @@ def build_qa_df(qa_ckpt, uuid2doc_map):
                 text = re.sub(r'(\w+):', r'"\1":', text)  # 为属性名添加双引号
                 text = re.sub(r',\s*}', '}', text)  # 修复多余的逗号
                 text = re.sub(r',\s*]', ']', text)  # 修复多余的逗号
+
+                # 使用正则表达式提取方括号[]内的内容    
+                bracket_match = re.search(r'\[(.*?)\]', text, re.DOTALL)
+                if bracket_match:
+                    text = f"[{bracket_match.group(1)}]"
+                else:
+                    logger.error("未找到有效的JSON数组")
+                    break
+                
+                # 尝试提取 JSON 数组部分
+                json_match = re.search(r'\[\s*\{.*?\}\s*\]', text, re.DOTALL)
+                if json_match:
+                    text = json_match.group(0)
+                
                 qa_list = json.loads(text)
             except json.JSONDecodeError as e:
-                logger.error(f"JSON 解析错误: {str(e)}\n原始文本: {text[:2000]}...")
+                logger.error(f"JSON 解析错误: {str(e)}\n原始文本: {text[:4000]}...")
                 break
         
         for item in qa_list:
@@ -46,3 +60,7 @@ def build_qa_df(qa_ckpt, uuid2doc_map):
             })
     qa_df = pd.DataFrame(data)
     return qa_df
+
+
+if __name__ == "__main__":
+    pass

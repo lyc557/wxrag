@@ -9,7 +9,7 @@
 DEEPSEEK_API_KEY = "test-api-key"
 DEEPSEEK_API_BASE = "http://127.0.0.1:8000/v1"
 # DEEPSEEK_MODEL = "Qwen/Qwen2.5-3B-Instruct"
-DEEPSEEK_MODEL = "mlx-community/MiniCPM3-4B-bfloat16"
+DEEPSEEK_MODEL = "Qwen/Qwen2.5-3B-Instruct"
 DEEPSEEK_MAX_WORKERS = 1  # 并发工作线程数量
 
 
@@ -19,7 +19,7 @@ DOC_INPUT_DIR = "./docops/docs"
 DOC_OUTPUT_DIR = "./docops/outputs"
 
 # 文档分割配置
-DOC_SPLITTER_SEPARATORS = ["\n\n", "。", "！", "？", "；", "，", " "]
+DOC_SPLITTER_SEPARATORS = ["\n\n", "。", "！", "？"]
 
 
 # QA 生成提示词模板
@@ -40,6 +40,7 @@ QA_GEN_PROMPT_TMPL = """
    - 简明扼要，避免冗余
    - 使用肯定的语气
    - 不要引用文档结构（如章节、页码）
+如果文本主要是目录、人名列表、联系方式等无实质内容的信息，请返回空数组 []。
 
 返回格式：
 [
@@ -69,8 +70,6 @@ QA_GEN_PROMPT_TMPL = """
         "answer": "基于上下文的答案"
     }
 ]
-
-如果文本主要是目录、人名列表、联系方式等无实质内容的信息，请返回空数组 []。
 
 下方是待分析文本：
 <document>
@@ -99,6 +98,7 @@ QA_GEN_PROMPT_TMPL_LARGE_CONTEXT = """
    - 完整性：确保回答涵盖问题的各个方面
    - 准确性：严格基于文本内容，避免过度推测
    - 简洁性：去除冗余，突出关键信息
+如果文本主要是目录、人名列表、联系方式等无实质内容的信息，请返回空数组 []。
 
 返回格式：
 [
@@ -111,8 +111,6 @@ QA_GEN_PROMPT_TMPL_LARGE_CONTEXT = """
         "answer": "综合性回答"
     }
 ]
-
-如果文本主要是目录、人名列表、联系方式等无实质内容的信息，请返回空数组 []。
 
 下方是待分析文本：
 <document>

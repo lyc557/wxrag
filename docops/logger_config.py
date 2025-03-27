@@ -25,6 +25,28 @@ def get_logger(name):
     all_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     all_handler.setFormatter(all_formatter)
 
+    # INFO日志输出到info.log
+    info_handler = RotatingFileHandler(
+        os.path.join(log_dir, 'info.log'),
+        maxBytes=5*1024*1024,  # 5MB
+        backupCount=3
+    )
+    info_handler.setLevel(logging.INFO)
+    info_formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
+    info_handler.setFormatter(info_formatter)
+
+
+     # debug日志输出到debug.log
+    debug_handler = RotatingFileHandler(
+        os.path.join(log_dir, 'debug.log'),
+        maxBytes=5*1024*1024,  # 5MB
+        backupCount=3
+    )
+    debug_handler.setLevel(logging.DEBUG)
+    debug_handler.addFilter(lambda record: record.levelno == logging.DEBUG)  # 添加过滤器
+    debug_formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
+    debug_handler.setFormatter(debug_formatter)
+
     # 错误日志输出到error.log
     error_handler = RotatingFileHandler(
         os.path.join(log_dir, 'error.log'),
@@ -43,7 +65,17 @@ def get_logger(name):
 
     # 添加handler
     logger.addHandler(all_handler)
+    logger.addHandler(debug_handler)
+    logger.addHandler(info_handler)
     logger.addHandler(error_handler)
     logger.addHandler(console_handler)
 
     return logger
+
+if __name__ == "__main__":
+    logger = get_logger(__name__)
+    logger.debug('调试信息')
+    logger.info('普通信息')
+    logger.warning('警告信息')
+    logger.error('错误信息')
+    logger.critical('严重错误')
