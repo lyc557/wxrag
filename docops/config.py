@@ -48,27 +48,8 @@ QA_GEN_PROMPT_TMPL = """
         "question": "问题描述",
         "context": "原文引用",
         "answer": "基于上下文的答案"
-    },
-    {
-        "question": "问题描述",
-        "context": "原文引用",
-        "answer": "基于上下文的答案"
-    },
-    {
-        "question": "问题描述",
-        "context": "原文引用",
-        "answer": "基于上下文的答案"
-    },
-    {
-        "question": "问题描述",
-        "context": "原文引用",
-        "answer": "基于上下文的答案"
-    },
-    {
-        "question": "问题描述",
-        "context": "原文引用",
-        "answer": "基于上下文的答案"
-    }
+    } 
+    ...
 ]
 
 下方是待分析文本：
@@ -104,12 +85,10 @@ QA_GEN_PROMPT_TMPL_LARGE_CONTEXT = """
 [
     {
         "question": "深度分析性问题",
-        "answer": "综合性回答"
-    },
-    {
-        "question": "深度分析性问题",
+        "context": "原文引用",
         "answer": "综合性回答"
     }
+   ...
 ]
 
 下方是待分析文本：

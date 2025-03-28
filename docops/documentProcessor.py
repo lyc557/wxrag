@@ -146,8 +146,12 @@ class DocumentProcessor:
             cache_file='split_docs_large.pkl',
             force_split=True
         )
+
+            # 构建UUID到文档的映射
+        uuid2doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs}
+        uuid2large_doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs_large}
         
-        return splitted_docs, splitted_docs_large
+        return splitted_docs, splitted_docs_large,uuid2doc, uuid2large_doc
 
 def main():
     """主函数"""
@@ -159,7 +163,10 @@ def main():
     )
     
     logger.info("=== 1.处理文档 ===")
-    splitted_docs, splitted_docs_large = processor.process()
+    splitted_docs, splitted_docs_large, uuid2doc, uuid2large_doc= processor.process()
+
+    # text = splitted_docs[40].page_content
+    # logger.info(f"\n=== 1.1 原始文本: {text[:4000]}...")
     
     logger.info("\n=== 2.生成QA对 ===")
     qa_gen_prompt_tmpl = QA_GEN_PROMPT_TMPL
@@ -168,26 +175,37 @@ def main():
     
     logger.info("\n=== 3 生成QA数据 ===")
     dpchat = DeepSeekChat()
-    # 构建UUID到文档的映射
-    uuid2doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs}
-    uuid2large_doc = {doc.metadata['uuid']: doc.page_content for doc in splitted_docs_large}
+
     
     # 定义缓存文件路径
     detailed_qa_dict_pkl = os.path.join(processor.output_dir, "detailed_qa_dict.pkl")
     large_context_qa_dict_pkl = os.path.join(processor.output_dir, "large_context_qa_dict.pkl")
+    # 定义序列化文件路径
+    splitted_docs_pkl = os.path.join(processor.output_dir, "splitted_docs.pkl")
+    splitted_docs_large_pkl = os.path.join(processor.output_dir, "splitted_docs_large.pkl")
+    uuid2doc_pkl = os.path.join(processor.output_dir, "uuid2doc.pkl")
+    uuid2large_doc_pkl = os.path.join(processor.output_dir, "uuid2large_doc.pkl")
     
     # 检查缓存是否存在
     if os.path.exists(detailed_qa_dict_pkl) and os.path.exists(large_context_qa_dict_pkl) :
         logger.info("\n=== 从缓存加载QA数据 ===")
+        with open(splitted_docs_pkl, 'rb') as f:
+            splitted_docs = pickle.load(f)
+        with open(splitted_docs_large_pkl, 'rb') as f:
+            splitted_docs_large = pickle.load(f)
+        with open(uuid2doc_pkl, 'rb') as f:
+            uuid2doc = pickle.load(f)
+        with open(uuid2large_doc_pkl, 'rb') as f:
+            uuid2large_doc = pickle.load(f)
         with open(detailed_qa_dict_pkl, 'rb') as f:
             detailed_qa_dict = pickle.load(f)
         with open(large_context_qa_dict_pkl, 'rb') as f:
             large_context_qa_dict = pickle.load(f)
     else:
         logger.info("\n=== 从API生成QA数据 ===")
-        detailed_qa_dict = dpchat.gen_qa(splitted_docs[50:55], qa_gen_prompt_tmpl, 
+        detailed_qa_dict = dpchat.gen_qa(splitted_docs[0:10], qa_gen_prompt_tmpl, 
                                         os.path.join(processor.output_dir, "qa_ckpt_detailed.jsonl"))
-        large_context_qa_dict = dpchat.gen_qa(splitted_docs_large[50:55], qa_gen_prompt_tmpl_large_context, 
+        large_context_qa_dict = dpchat.gen_qa(splitted_docs_large[0:10], qa_gen_prompt_tmpl_large_context, 
                                             os.path.join(processor.output_dir, "qa_ckpt_large_context.jsonl"))
         
         # 序列化保存结果
@@ -195,6 +213,14 @@ def main():
             pickle.dump(detailed_qa_dict, f)
         with open(large_context_qa_dict_pkl, 'wb') as f:
             pickle.dump(large_context_qa_dict, f)
+        with open(splitted_docs_pkl, 'wb') as f:
+            pickle.dump(splitted_docs, f)
+        with open(splitted_docs_large_pkl, 'wb') as f:
+            pickle.dump(splitted_docs_large, f)
+        with open(uuid2doc_pkl, 'wb') as f:
+            pickle.dump(uuid2doc, f)
+        with open(uuid2large_doc_pkl, 'wb') as f:
+            pickle.dump(uuid2large_doc, f)
     
     logger.info(f"\n=== 3.2 详细QA对数量: {len(detailed_qa_dict)}")
     logger.info(f"\n=== 3.2 长上下文QA对数量: {len(large_context_qa_dict)}")

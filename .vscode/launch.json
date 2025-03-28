@@ -10,6 +10,18 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: DocumentProcessor",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/docops/documentProcessor.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }

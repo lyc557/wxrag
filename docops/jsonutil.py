@@ -10,39 +10,30 @@ from logger_config import get_logger
 
 logger = get_logger(__name__)
 
+
+def parse_json_text(data):
+    result = []
+    # 使用正则提取 JSON 部分
+    match = re.search(r'\[\[(.*)\]\]', data, re.DOTALL)
+    if match:
+        json_str = '[' + match.group(1).strip() + ']'
+        # 解析 JSON
+        try:
+            result = json.loads(json_str)
+            print(json.dumps(result, indent=4, ensure_ascii=False))
+        except json.JSONDecodeError as e:
+            print("JSON 解析错误:", e)
+    else:
+        print("未找到 JSON 数据")
+    return result
+
 def build_qa_df(qa_ckpt, uuid2doc_map):
     data = []
     for key, value in tqdm(qa_ckpt.items()):
         text = value['raw_resp']
-        try:
-            # 尝试直接解析
-            qa_list = json.loads(text)
-        except json.JSONDecodeError:
-            try:
-                # 处理不规范的 JSON 格式
-                text = text.replace("'", '"')  # 替换单引号为双引号
-                text = re.sub(r'(\w+):', r'"\1":', text)  # 为属性名添加双引号
-                text = re.sub(r',\s*}', '}', text)  # 修复多余的逗号
-                text = re.sub(r',\s*]', ']', text)  # 修复多余的逗号
+        qa_list = parse_json_text(text)
+        logger.debug(f"处理 {key}，提取到 {len(qa_list)} 个 QA 对")
 
-                # 使用正则表达式提取方括号[]内的内容    
-                bracket_match = re.search(r'\[(.*?)\]', text, re.DOTALL)
-                if bracket_match:
-                    text = f"[{bracket_match.group(1)}]"
-                else:
-                    logger.error("未找到有效的JSON数组")
-                    break
-                
-                # 尝试提取 JSON 数组部分
-                json_match = re.search(r'\[\s*\{.*?\}\s*\]', text, re.DOTALL)
-                if json_match:
-                    text = json_match.group(0)
-                
-                qa_list = json.loads(text)
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON 解析错误: {str(e)}\n原始文本: {text[:4000]}...")
-                break
-        
         for item in qa_list:
             question = item.get('question', '').strip()
             answer = item.get('answer', '').strip()
@@ -63,4 +54,6 @@ def build_qa_df(qa_ckpt, uuid2doc_map):
 
 
 if __name__ == "__main__":
-    pass
+    data = ''''[]\n\n[\n    {\n        "question": "公司董事会、监事会及董事、监事、高级管理人员对年度报告内容承担什么责任？",\n        "context": "本公司董事会、监事会及董事、监事、高级管理人员保证年度报告内容的真实 性、准确性、完整性，不存在虚假记载、误导性陈述或重大遗漏，并承担个别和连带的法律责任。",\n        "answer": "他们保证年度报告内容的真实性、准确性、完整性，不存在虚假记载、误导性陈述或重大遗漏，并承担个别和连带的法律责任。"\n    },\n    {\n        "question": "公司全体董事出席了哪次会议？",\n        "context": "公司全体董事出席董事会会议。",\n        "answer": "公司全体董事出席了董事会会议。"\n    },\n    {\n        "question": "谁为公司出具了审计报告？",\n        "context": "天职国际会计师事务所（特殊普通合伙）为本公司出具了标准无保留意见的审计报告。",\n        "answer": "天职国际会计师事务所（特殊普通合伙）为公司出具了标准无保留意见的审计报告。"\n    },\n    {\n        "question": "公司负责人、主管会计工作负责人及会计机构负责人需要保证年度报告中财务报告的什么？",\n        "context": "公司负责人丁雄军、主管会计工作负责人蒋焰及会计机构负责人（会计主管人员）蔡聪应声明：保证年度报告中财务报告的真实、准确、完整。",\n        "answer": "他们需要保证年度报告中财务报告的真实、准确、完整。"\n    },\n    {\n        "question": "公司计划如何进行2023年度的利润分配？",\n        "context": "公司以实施权益分派股权登记日公司总股本为基数实施2023年度利润分配，向全体股东每10股派发现金红利308.76元（含税）。截至2023年12月31日，公司总股本为125,619.78万股，以此计算合计拟派发现金红利38,786,363,272.80元（含税）。在实施权益分派的股权登记日前公司总股本如发生变动的，将维持分红总额不变，相应调整每股分红比例。以上利润分配预案需提交公司股东大会审议通过后实施。",\n        "answer": "公司计划以实施权益分派股权登记日公司总股本为基数，向全体股东每10股派发现金红利308.76元（含税）。截至2023年12月31日，公司总股本为125,619.78万股，以此计算合计拟派发现金红利38,786,363,272.80元（含税）。在实施权益分派的股权登记日前公司总股本如发生变动的，将维持分红总额不变，相应调整每股分红比例。以上利润分配预案需提交公司股东大会审议通过后实施。"\n    }\n]'''
+    qa_list = parse_json_text(data)
+    print(qa_list)
