@@ -203,32 +203,43 @@ def main():
             large_context_qa_dict = pickle.load(f)
     else:
         logger.info("\n=== 从API生成QA数据 ===")
-        detailed_qa_dict = dpchat.gen_qa(splitted_docs[0:10], qa_gen_prompt_tmpl, 
+        detailed_qa_dict = dpchat.gen_qa(splitted_docs[10:20], qa_gen_prompt_tmpl, 
                                         os.path.join(processor.output_dir, "qa_ckpt_detailed.jsonl"))
-        large_context_qa_dict = dpchat.gen_qa(splitted_docs_large[0:10], qa_gen_prompt_tmpl_large_context, 
-                                            os.path.join(processor.output_dir, "qa_ckpt_large_context.jsonl"))
-        
         # 序列化保存结果
         with open(detailed_qa_dict_pkl, 'wb') as f:
             pickle.dump(detailed_qa_dict, f)
-        with open(large_context_qa_dict_pkl, 'wb') as f:
-            pickle.dump(large_context_qa_dict, f)
         with open(splitted_docs_pkl, 'wb') as f:
             pickle.dump(splitted_docs, f)
-        with open(splitted_docs_large_pkl, 'wb') as f:
-            pickle.dump(splitted_docs_large, f)
         with open(uuid2doc_pkl, 'wb') as f:
             pickle.dump(uuid2doc, f)
+        large_context_qa_dict = dpchat.gen_qa(splitted_docs_large[20:30], qa_gen_prompt_tmpl_large_context, 
+                                            os.path.join(processor.output_dir, "qa_ckpt_large_context.jsonl"))
+        
+        # 序列化保存结果
+        with open(large_context_qa_dict_pkl, 'wb') as f:
+            pickle.dump(large_context_qa_dict, f)
+        with open(splitted_docs_large_pkl, 'wb') as f:
+            pickle.dump(splitted_docs_large, f)
         with open(uuid2large_doc_pkl, 'wb') as f:
             pickle.dump(uuid2large_doc, f)
     
-    logger.info(f"\n=== 3.2 详细QA对数量: {len(detailed_qa_dict)}")
-    logger.info(f"\n=== 3.2 长上下文QA对数量: {len(large_context_qa_dict)}")
+    logger.info(f"=== 3.2 详细QA对数量: {len(detailed_qa_dict)}\n")
+    logger.info(f"=== 3.2 长上下文QA对数量: {len(large_context_qa_dict)}\n")
 
-    logger.info("\n=== 4.构建QA对DataFrame ===")
+    logger.info("=== 4.构建QA对DataFrame ===\n")
     qa_df = build_qa_df(detailed_qa_dict, uuid2doc)
-    logger.info(f"\n=== 4.1 详细QA对DataFrame: {qa_df.shape}")
+    logger.info(f"=== 4.1 详细QA对DataFrame: {qa_df.shape}\n")
     large_context_qa_df = build_qa_df(large_context_qa_dict, uuid2large_doc)
+    logger.info(f"=== 4.2 长上下文QA对DataFrame: {large_context_qa_df.shape}\n")
 
+    qa_df.drop_duplicates('question', inplace=True)
+    qa_df['qa_type'] = 'detailed'
+    large_context_qa_df.drop_duplicates('question', inplace=True)
+    large_context_qa_df['qa_type'] = 'large_context'
+    qa_df = pd.concat([qa_df, large_context_qa_df])
+    logger.info(f"=== 4.3 合并QA对DataFrame: {qa_df.shape}\n")
+    # 保存QA对DataFrame
+    qa_df.to_csv(os.path.join(processor.output_dir, "qa_df.csv"), index=False)
+    logger.info(f"=== 4.4 保存QA对DataFrame: {os.path.join(processor.output_dir, 'qa_df.csv')}\n")
 if __name__ == "__main__":
     main()
