@@ -7,7 +7,7 @@ import pickle
 import re
 from typing import List, Dict, Tuple
 from deepseek_chat import DeepSeekChat
-from config import DOC_INPUT_DIR, DOC_OUTPUT_DIR, DOC_SPLITTER_SEPARATORS, QA_GEN_PROMPT_TMPL, QA_GEN_PROMPT_TMPL_LARGE_CONTEXT
+from config import DOC_INPUT_DIR, DOC_OUTPUT_DIR, DOC_SPLITTER_SEPARATORS, QA_GEN_PROMPT_TMPL, QA_GEN_PROMPT_TMPL_LARGE_CONTEXT, QA_CHECK_PROMPT_TMPL
 from jsonutil import  build_qa_df
 import pandas as pd
 from logger_config import get_logger
@@ -237,9 +237,20 @@ def main():
     large_context_qa_df.drop_duplicates('question', inplace=True)
     large_context_qa_df['qa_type'] = 'large_context'
     qa_df = pd.concat([qa_df, large_context_qa_df])
+    logger.info(qa_df.sample(5))
     logger.info(f"=== 4.3 合并QA对DataFrame: {qa_df.shape}\n")
     # 保存QA对DataFrame
     qa_df.to_csv(os.path.join(processor.output_dir, "qa_df.csv"), index=False)
     logger.info(f"=== 4.4 保存QA对DataFrame: {os.path.join(processor.output_dir, 'qa_df.csv')}\n")
+
+    #评分
+    logger.info("=== 5.评分 ===\n")
+    qa_check_prompt_tmpl = QA_CHECK_PROMPT_TMPL
+    # 从API生成评分
+    qa_df = dpchat.gen_score(qa_df, qa_check_prompt_tmpl, os.path.join(processor.output_dir, "qa_check_ckpt.jsonl"))
+    logger.info(f"=== 5.1 生成评分: {qa_df.shape}\n")
+    # 保存评分
+    qa_df.to_csv(os.path.join(processor.output_dir, "qa_df.csv"), index=False)
+    logger.info(f"=== 5.2 保存评分: {os.path.join(processor.output_dir, 'qa_df.csv')}\n")   
 if __name__ == "__main__":
     main()

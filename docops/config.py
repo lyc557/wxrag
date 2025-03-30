@@ -96,3 +96,26 @@ QA_GEN_PROMPT_TMPL_LARGE_CONTEXT = """
 {{document}}
 </document>
 """
+
+
+QA_CHECK_PROMPT_TMPL = """
+你是一个优秀的NLP方面的助教，你的任务是帮助检查出题组所出的期末考试的题目。
+你需要根据所出的问题（<question></question>之间的部分），以及参考答案（<answer></answer>）进行打分，并给出打分理由，分值是一个int类型的值，取值范围为1-5。
+好的问题，应该是询问实时、观点等，而不是类似于“这一段描述了什么”，“文本描述了什么”；
+好的答案，应该能够直接回答问题，而不是给出在原文中的引用，例如“第3章”等
+
+结果请以JSON形式组织，格式为如下：
+{"score": ..., "reason": ...}
+
+问题：
+<question>
+{{question}}
+</question>
+
+答案：
+<answer>
+{{answer}}
+</answer>
+
+请打分：
+"""

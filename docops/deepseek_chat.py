@@ -74,6 +74,20 @@ class DeepSeekChat:
         prompt = prompt_tmpl.replace('{{document}}', text).strip()
         return prompt
 
+    def gen_score(self, qa_df, qa_check_prompt_tmpl, qa_ckpt_filename):
+        """生成评分
+        
+        Args:
+            qa_df: 问答DataFrame
+            qa_check_prompt_tmpl: 评分提示模板
+            qa_ckpt_filename: 评分检查点文件名
+            
+        Returns:
+            更新后的DataFrame，包含评分
+        """
+        # 从API生成评分，调用自身的gen_qa方法
+        return self.gen_qa(qa_df, qa_check_prompt_tmpl, qa_ckpt_filename)
+    
     def gen_qa(self, splitted_docs, prompt_tmpl, qa_ckpt_filename):
         """生成问题和答案
 
