@@ -1,16 +1,16 @@
 # DeepSeek API 配置
-# DEEPSEEK_API_KEY = "sk-0127481958194e7b9a40cf229a18e5ee"
-# DEEPSEEK_API_BASE = "https://api.deepseek.com/v1"
-# DEEPSEEK_MODEL = "deepseek-chat"
-# DEEPSEEK_MAX_WORKERS = 1  # 并发工作线程数量
+DEEPSEEK_API_KEY = "sk-56fb24bb6f0f4d328a9b3cb256b77a27"
+DEEPSEEK_API_BASE = "https://api.deepseek.com/v1"
+DEEPSEEK_MODEL = "deepseek-chat"
+DEEPSEEK_MAX_WORKERS = 1  # 并发工作线程数量
 
 
 # 本地API配置
-DEEPSEEK_API_KEY = "test-api-key"
-DEEPSEEK_API_BASE = "http://127.0.0.1:8000/v1"
+# DEEPSEEK_API_KEY = "test-api-key"
+# DEEPSEEK_API_BASE = "http://127.0.0.1:8000/v1"
+# # DEEPSEEK_MODEL = "Qwen/Qwen2.5-3B-Instruct"
 # DEEPSEEK_MODEL = "Qwen/Qwen2.5-3B-Instruct"
-DEEPSEEK_MODEL = "Qwen/Qwen2.5-3B-Instruct"
-DEEPSEEK_MAX_WORKERS = 1  # 并发工作线程数量
+# DEEPSEEK_MAX_WORKERS = 1  # 并发工作线程数量
 
 
 

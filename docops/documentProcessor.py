@@ -243,14 +243,27 @@ def main():
     qa_df.to_csv(os.path.join(processor.output_dir, "qa_df.csv"), index=False)
     logger.info(f"=== 4.4 保存QA对DataFrame: {os.path.join(processor.output_dir, 'qa_df.csv')}\n")
 
+    # 检查Prompt是否正常
+    qa_check_prompt_tmpl = QA_CHECK_PROMPT_TMPL
+    # print(qa_df.iloc[1].to_dict())
+    # print(processor.build_qa_scoring_prompt(qa_df.iloc[1],qa_check_prompt_tmpl))
+    # print(dpchat.chat(processor.build_qa_scoring_prompt(qa_df.iloc[1],qa_check_prompt_tmpl)))
+
     #评分
     logger.info("=== 5.评分 ===\n")
-    qa_check_prompt_tmpl = QA_CHECK_PROMPT_TMPL
+
     # 从API生成评分
-    qa_df = dpchat.gen_score(qa_df, qa_check_prompt_tmpl, os.path.join(processor.output_dir, "qa_check_ckpt.jsonl"))
-    logger.info(f"=== 5.1 生成评分: {qa_df.shape}\n")
-    # 保存评分
-    qa_df.to_csv(os.path.join(processor.output_dir, "qa_df.csv"), index=False)
-    logger.info(f"=== 5.2 保存评分: {os.path.join(processor.output_dir, 'qa_df.csv')}\n")   
+    # 调用documentCheck评分
+    qa_scoring_ckpt_filename = os.path.join(processor.output_dir, "qa_scoring_ckpt.jsonl")
+    qa_scores,hq_qa_df = dpchat.score_qa_pairs(qa_df.iloc[2:9], qa_check_prompt_tmpl,qa_scoring_ckpt_filename)
+
+
+    hq_qa_df.to_excel(os.path.join(processor.output_dir, 'question_answer.xlsx'), index=False)
+
+    logger.info(f"=== 5.1 评分结果: {qa_scores.shape}\n")
+    qa_scores.to_csv(os.path.join(processor.output_dir, "qa_scores.csv"), index=False)
+    logger.info(f"=== 5.2 保存评分结果:question_answer.xlsx")
+    hq_qa_df.to_excel(os.path.join(processor.output_dir, f'question_answer.xlsx'), index=False)
+
 if __name__ == "__main__":
     main()
