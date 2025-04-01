@@ -1,46 +1,56 @@
-# LangChain框架及其社区组件，用于构建LLM应用
-import langchain, langchain_community
-# 更新导入语句，使用新的包
-from langchain_huggingface import HuggingFaceEmbeddings
-# PDF处理库
-import pypdf
-# 文本向量化模型库
-import sentence_transformers
-# 向量数据库
-import chromadb
-# 操作系统接口，用于文件和环境变量操作
-import os
-# 数据处理和分析库
-import pandas as pd
-# 数值计算库
-import numpy as np
-# 科学计算库，用于计算相似度
-from sklearn.metrics.pairwise import cosine_similarity
-# 垃圾回收
-import gc
-# PyTorch深度学习框架
-import torch
-# 更新导入语句，使用新的包
-from langchain_chroma import Chroma
-# 文本向量化模型库，用于将文本转换为向量表示
-from sentence_transformers import SentenceTransformer
-# 环境变量配置管理
-from dotenv import load_dotenv
-from logger_config import get_logger
-# 加载config配置
-from config import DOC_INPUT_DIR, DOC_OUTPUT_DIR, DOC_SPLITTER_SEPARATORS, QA_GEN_PROMPT_TMPL, QA_GEN_PROMPT_TMPL_LARGE_CONTEXT, QA_CHECK_PROMPT_TMPL
-from langchain_community.document_loaders import PyPDFLoader
-import pickle
-from uuid import uuid4
-from typing import List
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
-from tqdm import tqdm
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.prompts import PromptTemplate
-import shutil
-from deepseek_chat import DeepSeekChat
+# ===== 基础库 =====
+import os                      # 操作系统接口，用于文件和路径操作
+import gc                      # 垃圾回收，用于内存管理
+import pickle                  # 序列化和反序列化Python对象
+import shutil                  # 高级文件操作，如复制和删除目录
+from uuid import uuid4         # 生成唯一标识符
+from typing import List        # 类型注解
+from datetime import datetime  # 日期和时间处理
+
+# ===== 数据处理 =====
+import numpy as np             # 数值计算库
+import pandas as pd            # 数据分析和处理库
+from tqdm import tqdm          # 进度条显示
+
+# ===== 机器学习 =====
+import torch                   # PyTorch深度学习框架
+from sklearn.metrics.pairwise import cosine_similarity  # 计算余弦相似度
+
+# ===== 文档处理 =====
+import pypdf                   # PDF文件处理
+from langchain_community.document_loaders import PyPDFLoader  # 加载PDF文档
+from langchain.docstore.document import Document              # 文档对象
+from langchain.text_splitter import RecursiveCharacterTextSplitter  # 文本分割
+
+# ===== 向量数据库 =====
+import chromadb                # 向量数据库底层库
+from langchain_chroma import Chroma  # LangChain的Chroma向量数据库接口
+
+# ===== 文本嵌入 =====
+import sentence_transformers   # 文本向量化基础库
+from sentence_transformers import SentenceTransformer  # 文本向量化模型
+from langchain_huggingface import HuggingFaceEmbeddings  # HuggingFace嵌入模型接口
+
+# ===== LangChain组件 =====
+import langchain, langchain_community  # LangChain框架及社区组件
+from langchain_core.prompts import PromptTemplate  # 提示词模板
+from langchain_core.output_parsers import StrOutputParser  # 输出解析器
+from langchain_core.runnables import RunnablePassthrough  # 可运行链组件
+
+# ===== 配置和工具 =====
+from dotenv import load_dotenv  # 环境变量管理
+from logger_config import get_logger  # 日志配置
+from config import (  # 项目配置
+    DOC_INPUT_DIR, 
+    DOC_OUTPUT_DIR, 
+    DOC_SPLITTER_SEPARATORS, 
+    QA_GEN_PROMPT_TMPL, 
+    QA_GEN_PROMPT_TMPL_LARGE_CONTEXT, 
+    QA_CHECK_PROMPT_TMPL
+)
+
+# ===== LLM模型 =====
+from deepseek_chat import DeepSeekChat  # DeepSeek聊天模型接口
 
 logger = get_logger(__name__)
 class BaseLine:
