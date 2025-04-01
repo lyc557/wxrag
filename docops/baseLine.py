@@ -1,11 +1,17 @@
+# LangChain框架及其社区组件，用于构建LLM应用
 import langchain, langchain_community, pypdf, sentence_transformers, chromadb
+# 操作系统接口，用于文件和环境变量操作
 import os
-from dotenv import load_dotenv
-load_dotenv()
+# 数据处理和分析库
 import pandas as pd
+# LangChain的向量存储组件，用于存储和检索向量化文本
 from langchain_community.vectorstores import Chroma
+# 文本向量化模型库，用于将文本转换为向量表示
 from sentence_transformers import SentenceTransformer
+# 环境变量配置管理
+from dotenv import load_dotenv
 
+load_dotenv()
 # 从 .env 读取代理设置
 http_proxy = os.getenv('HTTP_PROXY')
 https_proxy = os.getenv('HTTPS_PROXY')
