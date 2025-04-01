@@ -1,8 +1,8 @@
 # DeepSeek API 配置
-DEEPSEEK_API_KEY = "sk-56fb24bb6f0f4d328a9b3cb256b77a27"
+DEEPSEEK_API_KEY = "sk-a30b61682b6249f9842fa6f91b89139a"
 DEEPSEEK_API_BASE = "https://api.deepseek.com/v1"
 DEEPSEEK_MODEL = "deepseek-chat"
-DEEPSEEK_MAX_WORKERS = 1  # 并发工作线程数量
+DEEPSEEK_MAX_WORKERS = 2  # 并发工作线程数量
 
 
 # 本地API配置

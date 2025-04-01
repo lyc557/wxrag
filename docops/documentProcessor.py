@@ -11,7 +11,8 @@ from config import DOC_INPUT_DIR, DOC_OUTPUT_DIR, DOC_SPLITTER_SEPARATORS, QA_GE
 from jsonutil import  build_qa_df
 import pandas as pd
 from logger_config import get_logger
-
+from collections import Counter
+import json
 logger = get_logger(__name__)
 
 class DocumentProcessor:
@@ -85,7 +86,7 @@ class DocumentProcessor:
                 footers.append('\n'.join(lines[-3:]))
         
         # 找出频繁出现的页眉页脚模式
-        from collections import Counter
+
         header_counter = Counter(headers)
         footer_counter = Counter(footers)
         
@@ -203,7 +204,7 @@ def main():
             large_context_qa_dict = pickle.load(f)
     else:
         logger.info("\n=== 从API生成QA数据 ===")
-        detailed_qa_dict = dpchat.gen_qa(splitted_docs[10:20], qa_gen_prompt_tmpl, 
+        detailed_qa_dict = dpchat.gen_qa(splitted_docs[1:20], qa_gen_prompt_tmpl, 
                                         os.path.join(processor.output_dir, "qa_ckpt_detailed.jsonl"))
         # 序列化保存结果
         with open(detailed_qa_dict_pkl, 'wb') as f:
@@ -212,7 +213,7 @@ def main():
             pickle.dump(splitted_docs, f)
         with open(uuid2doc_pkl, 'wb') as f:
             pickle.dump(uuid2doc, f)
-        large_context_qa_dict = dpchat.gen_qa(splitted_docs_large[20:30], qa_gen_prompt_tmpl_large_context, 
+        large_context_qa_dict = dpchat.gen_qa(splitted_docs_large[1:20], qa_gen_prompt_tmpl_large_context, 
                                             os.path.join(processor.output_dir, "qa_ckpt_large_context.jsonl"))
         
         # 序列化保存结果
@@ -223,6 +224,21 @@ def main():
         with open(uuid2large_doc_pkl, 'wb') as f:
             pickle.dump(uuid2large_doc, f)
     
+    # 将文档块输出为JSON格式
+    docs_json = []
+    for doc in splitted_docs:
+        doc_dict = {
+            'uuid': doc.metadata['uuid'],
+            'page_content': doc.page_content,
+            'metadata': doc.metadata
+        }
+        docs_json.append(doc_dict)
+    
+    with open(os.path.join(processor.output_dir, 'splitted_docs.json'), 'w', encoding='utf-8') as f:
+        json.dump(docs_json, f, ensure_ascii=False, indent=2)
+    
+    logger.info(f"文档块已保存为JSON格式: {os.path.join(processor.output_dir, 'splitted_docs.json')}")
+
     logger.info(f"=== 3.2 详细QA对数量: {len(detailed_qa_dict)}\n")
     logger.info(f"=== 3.2 长上下文QA对数量: {len(large_context_qa_dict)}\n")
 
@@ -255,10 +271,7 @@ def main():
     # 从API生成评分
     # 调用documentCheck评分
     qa_scoring_ckpt_filename = os.path.join(processor.output_dir, "qa_scoring_ckpt.jsonl")
-    qa_scores,hq_qa_df = dpchat.score_qa_pairs(qa_df.iloc[2:9], qa_check_prompt_tmpl,qa_scoring_ckpt_filename)
-
-
-    hq_qa_df.to_excel(os.path.join(processor.output_dir, 'question_answer.xlsx'), index=False)
+    qa_scores,hq_qa_df = dpchat.score_qa_pairs(qa_df, qa_check_prompt_tmpl,qa_scoring_ckpt_filename)
 
     logger.info(f"=== 5.1 评分结果: {qa_scores.shape}\n")
     qa_scores.to_csv(os.path.join(processor.output_dir, "qa_scores.csv"), index=False)

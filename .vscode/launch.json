@@ -22,6 +22,18 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
+        },
+        {
+            "name": "Python: BaseLine",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/docops/baseLine.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }
