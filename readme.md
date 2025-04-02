@@ -35,6 +35,7 @@
 
 ## 项目结构
 ### WXRAG项目 rag主项目
+``` mermaid
 wxrag/
 ├── frontend/            # 前端React应用
 ├── backend/             # 后端FastAPI服务
@@ -48,6 +49,7 @@ wxrag/
 ├── docops/              # 文本分割子任务
 ├── docs/                # 项目文档
 └── tests/               # 测试代码
+```
 
 ### mlx_openai_api_server open-ai接口项目
 使用FASTAPI实现的open-ai接口
