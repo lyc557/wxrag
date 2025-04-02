@@ -7,3 +7,5 @@ __pycache__/
 .tmp
 logs/
 .env
+# 新增忽略规则
+util/output/images/
