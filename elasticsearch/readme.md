@@ -37,5 +37,18 @@ docker-compose up -d
 
 ✅ 访问
 
-Elasticsearch API: http://192.168.31.120:9200
+Elasticsearch API: http://192.168.31.120:9200  http://10.45.9.130:9200
+配置修改：
+``` bash
+docker exec -it elasticsearch /bin/bash
+```
+``` bash
+vi config/elasticsearch.yml
+```
+``` bash
+network.host: 0.0.0.0
+```
+``` bash
+exit
+```
 Kibana 可视化管理: http://192.168.31.120:5601

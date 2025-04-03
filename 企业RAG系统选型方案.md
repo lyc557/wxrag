@@ -2,10 +2,6 @@
 
 ### 参考资料：
 
-https://github.com/Steven-Luo/MasteringRAG?tab=readme-ov-file
-
-https://github.com/lizhe2004/Awesome-LLM-RAG-Application
-
 ## 背景：
 
 企业制度层级分为：
@@ -20,5 +16,17 @@ https://github.com/lizhe2004/Awesome-LLM-RAG-Application
 
 ## 效果
 
+如果要评估 RAG 召回率：
 
-企业RAG之，QA问答系统数据的生成
+DuReader（百度问答数据集）：DuReader
+
+WebQA（网页搜索数据）：WebQA
+
+LCQMC（中文语义匹配）：LCQMC
+
+如果要评估 RAG 生成质量：
+
+CMRC 2018（中文阅读理解）：CMRC
+
+THUQA（清华 NLP 问答数据集）：THU NLP
+
